@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0721for.me - 语音播放器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-bar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-weight: bold;
+            font-size: 24px;
+            color: #333;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .logo:hover {
+            color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-top: 80px;
+        }
+
+        .play-button {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .play-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .play-button:active {
+            transform: scale(0.95);
+        }
+
+        .play-icon {
+            width: 0;
+            height: 0;
+            border-left: 25px solid white;
+            border-top: 15px solid transparent;
+            border-bottom: 15px solid transparent;
+            margin-left: 5px;
+        }
+
+
+
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            pointer-events: none;
+        }
+
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+
+
+        @media (max-width: 768px) {
+            .top-bar {
+                padding: 12px 20px;
+            }
+            
+            .logo {
+                font-size: 20px;
+            }
+            
+            .play-button {
+                width: 100px;
+                height: 100px;
+            }
+            
+            .play-icon {
+                border-left-width: 20px;
+                border-top-width: 12px;
+                border-bottom-width: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="https://0721for.me" class="logo" target="_blank">0721for.me</a>
+    </div>
+
+    <div class="main-content">
+        <div style="text-align: center;">
+            <button class="play-button" id="playButton" onclick="togglePlay()">
+                <div class="play-icon" id="playIcon"></div>
+            </button>
+
+        </div>
+    </div>
+
+    <script>
+        // 创建一个全局的音频对象，用于缓存
+        const cachedAudio = new Audio('output.wav');
+        cachedAudio.volume = 0.8; // 稍微降低音量避免过响
+        
+        // 预加载音频并设置为可以循环播放
+        cachedAudio.load();
+        
+        // 创建一个音频上下文用于克隆音频
+        let audioContext;
+        let audioBuffer = null;
+        
+        // 初始化音频上下文并加载音频文件
+        async function initAudio() {
+            try {
+                // 创建音频上下文
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // 获取音频文件并只获取一次
+                const response = await fetch('output.wav');
+                const arrayBuffer = await response.arrayBuffer();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                console.log('音频文件已加载到缓存');
+            } catch (error) {
+                console.error('初始化音频失败:', error);
+            }
+        }
+        
+        // 页面加载时初始化音频
+        initAudio();
+        
+        function playAudio() {
+            if (audioBuffer) {
+                // 使用已缓存的音频数据创建新的音源
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+            } else {
+                // 如果音频缓冲区还未加载完成，使用备用方法
+                cachedAudio.currentTime = 0;
+                cachedAudio.play().catch(error => {
+                    console.log('音频播放失败:', error);
+                });
+            }
+
+            // 添加点击波纹效果
+            createRipple(event);
+        }
+
+        function togglePlay() {
+            playAudio();
+        }
+
+        function createRipple(event) {
+            const button = document.getElementById('playButton');
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+            
+            const rect = button.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = event.clientX - rect.left - size / 2;
+            const y = event.clientY - rect.top - size / 2;
+            
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            
+            button.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        }
+
+        // 页面加载完成后初始化音频（不自动播放）
+        window.addEventListener('load', function() {
+            console.log('页面加载完成，音频已准备就绪');
+        });
+    </script>
+</body>
+</html>
